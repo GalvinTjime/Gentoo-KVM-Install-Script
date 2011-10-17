@@ -1,0 +1,78 @@
+#!/bin/bash
+
+#Create the partition table and allocate the space for the partitions
+parted -s /dev/sda mklabel msdos
+parted -s /dev/sda mkpart p ext2 0Mb 150Mb
+parted -s /dev/sda mkpart p 150Mb 662Mb
+parted -s /dev/sda mkpart p ext4 662Mb 8Gb
+
+#Make the filesystems
+mkswap /dev/sda2
+mkfs.ext2 /dev/sda1
+mkfs.ext4 /dev/sda3
+
+#Mount the filesystems and make the "boot" folder
+swapon /dev/sda2
+mount /dev/sda3 /mnt/gentoo
+mkdir /mnt/gentoo/boot
+mount /dev/sda1 /mnt/gentoo/boot
+
+#Determine latest stage3 tarbal and download the most current setup tarbals
+cd /mnt/gentoo/
+wget ftp://gentoo.arcticnetwork.ca/pub/gentoo/releases/amd64/autobuilds/latest-stage3.txt
+g_stage=$(tail --lines=1 latest-stage3.txt)
+
+wget ftp://gentoo.arcticnetwork.ca/pub/gentoo/releases/amd64/autobuilds/$g_stage
+wget ftp://gentoo.arcticnetwork.ca/pub/gentoo/releases/amd64/autobuilds/$g_stage.CONTENTS
+wget ftp://gentoo.arcticnetwork.ca/pub/gentoo/snapshots/portage-latest.tar.bz2
+
+#Untar the Gentoo installation files
+tar xjpf stage3-*.tar.bz2
+tar xjf portage-latest.tar.bz2 -C /mnt/gentoo/usr/
+
+#Clean up all downloaded files
+rm -f latest-stage3.txt
+rm -f portage-latest.tar.bz2
+rm -f stage3-*.tar.bz2
+rm -f stage3-*.tar.bz2.CONTENTS
+
+#Replace the stock make.conf with a customized one
+cd /mnt/gentoo/etc/
+mv make.conf ./make.conf.preconfigured
+wget ftp://gentoo.galvintjime.com/make.conf
+
+#Copy over any DNS information to ensure network connectivity when chroot'd
+cd /mnt/gentoo/
+cp -L /etc/resolv.conf /mnt/gentoo/etc/
+
+#Mount some needed filesystems
+mount -t proc none /mnt/gentoo/proc
+mount --rbind /dev /mnt/gentoo/dev
+
+#Initiate the chroot'd environment
+chroot /mnt/gentoo /bin/bash
+env-update
+source /etc/profile
+export PS1="(chroot) $PS1"
+
+#Update portage's ebuild list
+emerge --sync
+
+#Replace the stock locale.gen with a customized one
+cd /etc/
+mv locale.gen ./locale.gen.old
+wget ftp://gentoo.galvintjime.com/locale.gen
+locale-gen
+
+#Tell Gentoo which timezone the machine uses
+cp /usr/share/zoneinfo/EST /etc/localtime/
+
+#Download and setup the kernel sources
+emerge gentoo-sources
+
+#Make and install the kernel using a customized .config file
+cd /usr/src/linux/
+wget ftp://gentoo.galvintjime.com/kernel-config.cfg
+mv kernel-config.cfg ./.config
+make && make modules_install
+cp arch/x86_64/boot/bzImage /boot/kernel-(TO-BE-ADDED; [ls -l /usr/src/linux/])
