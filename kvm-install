@@ -17,6 +17,10 @@ mount /dev/sda3 /mnt/gentoo
 mkdir /mnt/gentoo/boot
 mount /dev/sda1 /mnt/gentoo/boot
 
+#Setup the network
+modprobe 8139cp
+dhcpcd eth0
+
 #Determine latest stage3 tarbal and download the most current setup tarbals
 cd /mnt/gentoo/
 wget ftp://gentoo.arcticnetwork.ca/pub/gentoo/releases/amd64/autobuilds/latest-stage3.txt
@@ -39,7 +43,7 @@ rm -f stage3-*.tar.bz2.CONTENTS
 #Replace the stock make.conf with a customized one
 cd /mnt/gentoo/etc/
 mv make.conf ./make.conf.preconfigured
-wget ftp://gentoo.galvintjime.com/make.conf
+cp /mnt/gentoo/Gentoo-KVM-Install-Script/make.conf /mnt/gentoo/etc/make.conf
 
 #Copy over any DNS information to ensure network connectivity when chroot'd
 cd /mnt/gentoo/
@@ -61,7 +65,7 @@ emerge --sync
 #Replace the stock locale.gen with a customized one
 cd /etc/
 mv locale.gen ./locale.gen.old
-wget ftp://gentoo.galvintjime.com/locale.gen
+cp /Gentoo-KVM-Install-Script/locale.gen /etc/locale.gen
 locale-gen
 
 #Tell Gentoo which timezone the machine uses
